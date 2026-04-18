@@ -1,7 +1,9 @@
-name: Deploy to GitHub Pages
+name: CI/CD Pipeline
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -15,7 +17,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Job 1: ตรวจสอบคุณภาพโค้ด
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run ESLint
+        run: npm run lint
+      - name: Type check
+        run: npx tsc --noEmit
+
+  # Job 2: Build
   build:
+    needs: quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,8 +50,10 @@ jobs:
         with:
           path: ./dist
 
+  # Job 3: Deploy (เฉพาะ main)
   deploy:
     needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
